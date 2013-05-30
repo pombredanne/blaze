@@ -8,6 +8,8 @@ from itertools import imap
 from collections import deque
 from utils import zmq_addr
 
+from blir import Context
+
 import protocol as proto
 import zmq.green as zmq
 
@@ -151,17 +153,11 @@ class Client(object):
         self.have_bytecode = True
 
     def set_llvm(self, bitcode, mapsig=None, reducesig=None):
-        import llvm.ee as le
-        import llvm.core as lc
+        _, env = blir.compile(bitcode)
+        self._llvm_ctx = ctx = Context(env)
 
-        lmodule = lc.Module.from_bitcode(bitcode)
-        eb = le.EngineBuilder.new(lmodule)
-        tc = le.TargetMachine.new(features='', cm=le.CM_JITDEFAULT)
-
-        engine = eb.create(tc)
-
-        self.mapfn = engine.get_pointer_to_function('mapfn')
-        self.reducefn = engine.get_pointer_to_function('reducefn')
+        self.mapfn = ctx.lookup_fn('mapfn')
+        self.reducefn = ctx.lookup_fn('reducefn')
 
         self.have_bytecode = True
 
