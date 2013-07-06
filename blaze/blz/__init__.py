@@ -49,6 +49,6 @@ def detect_number_of_cores():
 # Initialization code for the Blosc library
 _blosc_init()
 ncores = detect_number_of_cores()
-_blosc_set_nthreads(ncores)
+_blosc_set_nthreads(ncores/4)
 import atexit
 atexit.register(_blosc_destroy)

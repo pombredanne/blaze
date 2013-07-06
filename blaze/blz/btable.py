@@ -312,6 +312,17 @@ class btable(object):
                 os.remove(rootdir)
         os.mkdir(rootdir)
 
+    def append_row(self, row):
+        """
+        append_row(row)
+
+        Append a single `row` to this btable.
+        """
+        for i, name in enumerate(self.names):
+            # Append the values to column
+            self.cols[name].append(row[i])
+        self.len += 1
+
     def append(self, rows):
         """
         append(rows)
