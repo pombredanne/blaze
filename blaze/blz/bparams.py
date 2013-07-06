@@ -8,7 +8,7 @@ configuration parameters for barray
 
 class bparams(object):
     """
-    bparams(clevel=5, shuffle=True, complib="blosclz")
+    bparams(clevel=5, shuffle=True, clib="blosclz")
 
     Class to host parameters for compression and other filters.
 
@@ -18,7 +18,7 @@ class bparams(object):
         The compression level.
     shuffle : bool
         Whether the shuffle filter is active or not.
-    complib : str
+    clib : str
         The compression library to use ("blosclz", "snappy", "lz4")
 
     Notes
@@ -39,11 +39,11 @@ class bparams(object):
         return self._shuffle
 
     @property
-    def complib(self):
+    def clib(self):
         """Compression library to use"""
-        return self._complib
+        return self._clib
 
-    def __init__(self, clevel=5, shuffle=True, complib="blosclz"):
+    def __init__(self, clevel=5, shuffle=True, clib="blosclz"):
         if not isinstance(clevel, int):
             raise ValueError("`clevel` must an int.")
         if not isinstance(shuffle, (bool, int)):
@@ -51,15 +51,15 @@ class bparams(object):
         shuffle = bool(shuffle)
         if clevel < 0:
             raise ValueError("clevel must be a positive integer")
-        if complib not in ("blosclz", "snappy", "lz4"):
-            raise ValueError("complib '%s' is not supported." % complib)
+        if clib not in ("blosclz", "snappy", "lz4"):
+            raise ValueError("clib '%s' is not supported." % clib)
         self._clevel = clevel
         self._shuffle = shuffle
-        self._complib = complib
+        self._clib = clib
 
     def __repr__(self):
         args = ["clevel=%d"%self._clevel, "shuffle=%s"%self._shuffle,
-                "complib=%s"%self._complib]
+                "clib=%s"%self._clib]
         return '%s(%s)' % (self.__class__.__name__, ', '.join(args))
 
 ## Local Variables:
