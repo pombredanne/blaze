@@ -392,9 +392,9 @@ cdef class chunk:
 
     clevel = bparams.clevel
     shuffle = bparams.shuffle
-    if blosc_set_complib(bparams.complib) < 0:
+    if blosc_set_complib(bparams.clib) < 0:
       raise RuntimeError(
-          "fatal error setting the compression lib: %s"%bparams.complib)
+          "fatal error setting the compression lib: %s"%bparams.clib)
 
     dest = <char *>malloc(nbytes+BLOSC_MAX_OVERHEAD)
     with nogil:
