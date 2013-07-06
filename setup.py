@@ -124,7 +124,7 @@ CFLAGS = os.environ.get('CFLAGS', '').split()
 LFLAGS = os.environ.get('LFLAGS', '').split()
 
 lib_dirs = []
-libs = []
+libs = ["snappy"]
 # Include NumPy header dirs
 from numpy.distutils.misc_util import get_numpy_include_dirs
 optional_libs = []
@@ -166,13 +166,16 @@ blz_depends = [
 blosc_source = [
     blosc_path + "blosc.c",
     blosc_path + "blosclz.c",
-    blosc_path + "shuffle.c"
+    blosc_path + "lz4.c",
+    blosc_path + "shuffle.c",
 ]
 
 blosc_depends = [
     blosc_path + "blosc.h",
     blosc_path + "blosclz.h",
-    blosc_path + "shuffle.h"
+    blosc_path + "lz4.h",
+    blosc_path + "snappy-c.h",
+    blosc_path + "shuffle.h",
 ]
 
 

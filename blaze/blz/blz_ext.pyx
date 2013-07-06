@@ -76,6 +76,7 @@ cdef extern from "blosc.h":
   void blosc_destroy()
   void blosc_get_versions(char *version_str, char *version_date)
   int blosc_set_nthreads(int nthreads)
+  int blosc_set_complib(char* complib)
   int blosc_compress(int clevel, int doshuffle, size_t typesize,
                      size_t nbytes, void *src, void *dest,
                      size_t destsize) nogil
@@ -118,6 +119,25 @@ def _blosc_set_nthreads(nthreads):
 
   """
   return blosc_set_nthreads(nthreads)
+
+def _blosc_set_complib(complib):
+  """
+  _blosc_set_complib(complib)
+
+  Sets the compression library that Blosc will use.
+
+  Parameters
+  ----------
+  complib : str
+      The compression library to use.
+
+  Returns
+  -------
+  out : int
+      If something goes wrong this returns a -1, else a 0 value is returned.
+
+  """
+  return blosc_set_complib(complib)
 
 def _blosc_init():
   """
