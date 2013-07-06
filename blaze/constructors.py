@@ -14,7 +14,8 @@ import inspect
 
 from .array import Array
 from .datadescriptor import (IDataDescriptor,
-                DyNDDataDescriptor, BLZDataDescriptor)
+                             #DyNDDataDescriptor,
+                             BLZDataDescriptor)
 from .datashape import to_numpy, to_numpy_dtype
 from .storage import Storage
 
