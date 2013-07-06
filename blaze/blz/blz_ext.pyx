@@ -369,13 +369,17 @@ cdef class chunk:
 
   cdef compress_data(self, char *data, size_t itemsize, size_t nbytes,
                      object bparams):
-    """Compress data with `caparms` and return metadata."""
+    """Compress data with `bparms` and return metadata."""
     cdef size_t nbytes_, cbytes, blocksize
     cdef int clevel, shuffle
     cdef char *dest
 
     clevel = bparams.clevel
     shuffle = bparams.shuffle
+    if blosc_set_complib(bparams.complib) < 0:
+      raise RuntimeError(
+          "fatal error setting the compression lib: %s"%bparams.complib)
+
     dest = <char *>malloc(nbytes+BLOSC_MAX_OVERHEAD)
     with nogil:
       cbytes = blosc_compress(clevel, shuffle, itemsize, nbytes,
