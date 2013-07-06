@@ -14,7 +14,8 @@ from .datashape import dshape, coretypes as T
 from .datashape.util import to_ctypes
 from .datadescriptor import (IDataDescriptor,
                              data_descriptor_from_ctypes,
-                             DyNDDataDescriptor)
+                             #DyNDDataDescriptor,
+                             )
 from .executive import simple_execute_write
 from ._printing import array2string as _printer
 from .py2help import exec_
