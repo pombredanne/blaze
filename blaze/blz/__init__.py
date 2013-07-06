@@ -9,7 +9,8 @@ from .arrayprint import (
     array2string, set_printoptions, get_printoptions)
 
 from .blz_ext import (
-    barray, _blosc_set_nthreads, blosc_version, _blosc_init, _blosc_destroy)
+    barray, _blosc_set_nthreads, blosc_version, _blosc_init, _blosc_destroy,
+    _blosc_set_complib)
 from .btable import btable
 from .bfuncs import (
     open, zeros, ones, fill, arange, fromiter, iterblocks, whereblocks)
@@ -50,5 +51,6 @@ def detect_number_of_cores():
 _blosc_init()
 ncores = detect_number_of_cores()
 _blosc_set_nthreads(ncores/4)
+_blosc_set_complib("snappy")
 import atexit
 atexit.register(_blosc_destroy)
