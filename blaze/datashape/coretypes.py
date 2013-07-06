@@ -604,11 +604,14 @@ class CType(Mono):
         """
         return np.dtype(self.name).char
 
-    def to_dtype(self):
+    def to_numpy_dtype(self):
         """
         To Numpy dtype.
         """
-        return np.dtype(self.name)
+        # Fixup the complex type to how numpy does it
+        s = self.name
+        s = {'cfloat32':'complex64', 'cfloat64':'complex128'}.get(s, s)
+        return np.dtype(s)
 
     def __str__(self):
         return self.name
@@ -880,6 +883,10 @@ class Record(Mono):
         return self.__k
 
     @property
+    def types(self):
+        return self.__v
+
+    @property
     def c_itemsize(self):
         """The size of one element of this type stored in a C layout."""
         if self._c_itemsize is not None:
@@ -903,12 +910,12 @@ class Record(Mono):
         else:
             raise AttributeError('data shape does not have fixed C offsets')
 
-    def to_dtype(self):
+    def to_numpy_dtype(self):
         """
         To Numpy record dtype.
         """
         dk = self.__k
-        dv = map(to_dtype, self.__v)
+        dv = map(to_numpy_dtype, self.__v)
         return np.dtype(zip(dk, dv))
 
     def __getitem__(self, key):
@@ -929,6 +936,17 @@ class Record(Mono):
     def __repr__(self):
         # need double quotes to form valid aterm, also valid Python
         return ''.join(["dshape(\"", str(self).encode('unicode_escape').decode('ascii'), "\")"])
+
+    def subarray(self, leading):
+        """Returns a data shape object of the subarray with 'leading'
+        dimensions removed. In the case of a measure such as CType,
+        'leading' must be 0, and self is returned.
+        """
+        if leading >= 1:
+            raise IndexError(('Not enough dimensions in data shape '
+                            'to remove %d leading dimensions.') % leading)
+        else:
+            return self
 
 #------------------------------------------------------------------------
 # JSON
@@ -1007,8 +1025,12 @@ float32    = CType('float32', 4, ctypes.alignment(ctypes.c_float))
 float64    = CType('float64', 8, ctypes.alignment(ctypes.c_double))
 #float128   = CType('float128', 16)
 
-complex64  = CType('complex64', 8, ctypes.alignment(ctypes.c_float))
-complex128 = CType('complex128', 16, ctypes.alignment(ctypes.c_double))
+cfloat32  = CType('cfloat32', 8, ctypes.alignment(ctypes.c_float))
+cfloat64 = CType('cfloat64', 16, ctypes.alignment(ctypes.c_double))
+Type.register('complex64', cfloat32)
+complex64  = cfloat32
+Type.register('complex128', cfloat64)
+complex128 = cfloat64
 #complex256 = CType('complex256', 32)
 
 timedelta64 = CType('timedelta64', 8, ctypes.alignment(ctypes.c_int64))
@@ -1133,7 +1155,7 @@ def from_python_scalar(scalar):
     elif isinstance(scalar, float):
         return float64
     elif isinstance(scalar, complex):
-        return complex128
+        return cfloat64
     elif isinstance(scalar, _strtypes):
         return string
     elif isinstance(scalar, datetime.timedelta):
@@ -1154,7 +1176,7 @@ class NotNumpyCompatible(Exception):
     """
     pass
 
-def to_dtype(ds):
+def to_numpy_dtype(ds):
     """ Throw away the shape information and just return the
     measure as NumPy dtype instance."""
     return to_numpy(extract_measure(ds))
@@ -1169,7 +1191,7 @@ def to_numpy(ds):
     """
 
     if isinstance(ds, CType):
-        return ds.to_dtype()
+        return ds.to_numpy_dtype()
 
     shape = tuple()
     dtype = None
@@ -1188,11 +1210,11 @@ def to_numpy(ds):
             raise NotNumpyCompatible('Datashape dimension %s is not NumPy-compatible' % dim)
 
     # The datashape measure
-    msr = extract_measure(ds)
+    msr = ds[-1]
     if isinstance(msr, CType):
-        dtype = msr.to_dtype()
+        dtype = msr.to_numpy_dtype()
     elif isinstance(msr, Record):
-        dtype = msr.to_dtype()
+        dtype = msr.to_numpy_dtype()
     else:
         raise NotNumpyCompatible('Datashape measure %s is not NumPy-compatible' % msr)
 

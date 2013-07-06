@@ -14,10 +14,11 @@ import inspect
 
 from .array import Array
 from .datadescriptor import (IDataDescriptor,
-                NumPyDataDescriptor, BLZDataDescriptor)
-from .datashape import to_numpy, to_dtype
+                DyNDDataDescriptor, BLZDataDescriptor)
+from .datashape import to_numpy, to_numpy_dtype
 from .storage import Storage
 
+from dynd import nd, ndt
 import numpy as np
 from . import blz
 from ._api_helpers import _normalize_dshape
@@ -45,7 +46,7 @@ def array(obj, dshape=None, caps={'efficient-write': True},
         A dictionary containing the desired capabilities of the array.
 
     storage : Storage instance
-        A Storage object with the necessary info for storing the data. 
+        A Storage object with the necessary info for storing the data.
 
     Returns
     -------
@@ -76,22 +77,40 @@ def array(obj, dshape=None, caps={'efficient-write': True},
         #   playing with internal datastructures, remember? you should
         #   be able to do it in your own.
         dd = obj
-    elif inspect.isgenerator(obj):
-        return _fromiter(obj, dshape, caps, storage)
     elif storage is not None:
-        dt = None if dshape is None else to_dtype(dshape)
-        dd = BLZDataDescriptor(
-            blz.barray(obj, dtype=dt, rootdir=storage.path))
+        dt = None if dshape is None else to_numpy_dtype(dshape)
+        if inspect.isgenerator(obj):
+            # TODO: Generator logic can go inside barray
+            dd = BLZDataDescriptor(blz.barray(obj, dtype=dt, count=-1,
+                                              rootdir=storage.path))
+        else:
+            dd = BLZDataDescriptor(
+                blz.barray(obj, dtype=dt, rootdir=storage.path))
     elif 'efficient-write' in caps and caps['efficient-write'] is True:
-        dt = None if dshape is None else to_dtype(dshape)
-        # NumPy provides efficient writes
-        dd = NumPyDataDescriptor(np.array(obj, dtype=dt))
+        # In-Memory array
+        if dshape is None:
+            dd = DyNDDataDescriptor(nd.array(obj))
+        else:
+            # Use the uniform/full dtype specification in dynd depending
+            # on whether the datashape has a uniform dim
+            dt = nd.dtype(str(dshape))
+            if dt.undim > 0:
+                dd = DyNDDataDescriptor(nd.array(obj, dtype=dt))
+            else:
+                dd = DyNDDataDescriptor(nd.array(obj, udtype=dt))
     elif 'compress' in caps and caps['compress'] is True:
-        dt = None if dshape is None else to_dtype(dshape)
+        dt = None if dshape is None else to_numpy_dtype(dshape)
         # BLZ provides compression
-        dd = BLZDataDescriptor(blz.barray(obj, dtype=dt))
+        if inspect.isgenerator(obj):
+            # TODO: Generator logic can go inside barray
+            dd = BLZDataDescriptor(blz.fromiter(obj, dtype=dt, count=-1))
+        else:
+            dd = BLZDataDescriptor(blz.barray(obj, dtype=dt))
+
     elif isinstance(obj, np.ndarray):
-        dd = NumPyDataDescriptor(obj)
+        dd = DyNDDataDescriptor(nd.array(obj))
+    elif isinstance(obj, nd.array):
+        dd = DyNDDataDescriptor(obj)
     elif isinstance(obj, blz.barray):
         dd = BLZDataDescriptor(obj)
     else:
@@ -99,39 +118,10 @@ def array(obj, dshape=None, caps={'efficient-write': True},
                         'object of type %r') % type(obj))
     return Array(dd)
 
-
 def _storage_convert(storage):
     if storage is not None and isinstance(storage, str):
         storage = Storage(storage)
     return storage
-
-
-# XXX This should probably be made public because the `count` param
-# for BLZ is very important for getting good performance.
-def _fromiter(gen, dshape, caps, storage):
-    """Create an array out of an iterator."""
-    dshape = _normalize_dshape(dshape)
-
-    # TODO: deal with non-supported capabilities.  Perhaps it would be
-    # better to convert caps into a class to check for supported
-    # capabilities only.
-    if storage is not None:
-        dt = None if dshape is None else to_dtype(dshape)
-        dd = BLZDataDescriptor(blz.barray(gen, dtype=dt, count=-1,
-                                          rootdir=storage.path))
-    elif 'efficient-write' in caps and caps['efficient-write'] is True:
-        dt = None if dshape is None else to_dtype(dshape)
-        dd = NumPyDataDescriptor(np.fromiter(gen, dtype=dt))
-    elif 'compress' in caps and caps['compress'] is True:
-        dt = None if dshape is None else to_dtype(dshape)
-        dd = BLZDataDescriptor(blz.fromiter(gen, dtype=dt, count=-1))
-    else:
-        # Fall-back is NumPy
-        dt = None if dshape is None else to_dtype(dshape)
-        dd = NumPyDataDescriptor(np.fromiter(gen, dtype=dt))
-
-    return Array(dd)
-
 
 def empty(dshape, caps={'efficient-write': True}, storage=None):
     """Create an array with uninitialized data.
@@ -145,7 +135,7 @@ def empty(dshape, caps={'efficient-write': True}, storage=None):
         A dictionary containing the desired capabilities of the array.
 
     storage : Storage instance
-        A Storage object with the necessary info for data storage. 
+        A Storage object with the necessary info for data storage.
 
     Returns
     -------
@@ -153,15 +143,14 @@ def empty(dshape, caps={'efficient-write': True}, storage=None):
 
     """
     dshape = _normalize_dshape(dshape)
-    shape, dt = to_numpy(dshape)
-
     storage = _storage_convert(storage)
 
     if storage is not None:
+        shape, dt = to_numpy(dshape)
         dd = BLZDataDescriptor(blz.zeros(shape, dt,
                                          rootdir=storage.path))
     elif 'efficient-write' in caps:
-        dd = NumPyDataDescriptor(np.empty(shape, dt))
+        dd = DyNDDataDescriptor(nd.empty(str(dshape)))
     elif 'compress' in caps:
         dd = BLZDataDescriptor(blz.zeros(shape, dt))
     return Array(dd)
@@ -178,7 +167,7 @@ def zeros(dshape, caps={'efficient-write': True}, storage=None):
         A dictionary containing the desired capabilities of the array.
 
     storage : Storage instance
-        A Storage object with the necessary info for data storage. 
+        A Storage object with the necessary info for data storage.
 
     Returns
     -------
@@ -186,17 +175,19 @@ def zeros(dshape, caps={'efficient-write': True}, storage=None):
 
     """
     dshape = _normalize_dshape(dshape)
-    shape, dt = to_numpy(dshape)
-
     storage = _storage_convert(storage)
 
-
     if storage is not None:
+        shape, dt = to_numpy(dshape)
         dd = BLZDataDescriptor(blz.zeros(shape, dt,
                                          rootdir=storage.path))
     elif 'efficient-write' in caps:
-        dd = NumPyDataDescriptor(np.zeros(shape, dt))
+        # TODO: Handle var dimension properly (raise exception?)
+        dyndarr = nd.empty(str(dshape))
+        dyndarr[...] = False
+        dd = DyNDDataDescriptor(dyndarr)
     elif 'compress' in caps:
+        shape, dt = to_numpy(dshape)
         dd = BLZDataDescriptor(blz.zeros(shape, dt))
     return Array(dd)
 
@@ -213,7 +204,7 @@ def ones(dshape, caps={'efficient-write': True}, storage=None):
         A dictionary containing the desired capabilities of the array.
 
     storage : Storage instance
-        A Storage object with the necessary info for data storage. 
+        A Storage object with the necessary info for data storage.
 
     Returns
     -------
@@ -221,16 +212,17 @@ def ones(dshape, caps={'efficient-write': True}, storage=None):
 
     """
     dshape = _normalize_dshape(dshape)
-    shape, dt = to_numpy(dshape)
-
     storage = _storage_convert(storage)
 
-
     if storage is not None:
+        shape, dt = to_numpy(dshape)
         dd = BLZDataDescriptor(blz.ones(shape, dt,
                                         rootdir=storage.path))
     elif 'efficient-write' in caps:
-        dd = NumPyDataDescriptor(np.ones(shape, dt))
+        # TODO: Handle var dimension properly (raise exception?)
+        dyndarr = nd.empty(str(dshape))
+        dyndarr[...] = True
+        dd = DyNDDataDescriptor(dyndarr)
     elif 'compress' in caps:
         shape, dt = to_numpy(dshape)
         dd = BLZDataDescriptor(blz.ones(shape, dt))

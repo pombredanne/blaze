@@ -9,14 +9,15 @@ will be placed in a concrete target data_descriptor.
 
 from itertools import product as it_product
 import ctypes
-from ..py3help import izip
+import operator
+from ..py3help import izip, reduce, xrange
 from ..datashape.util import to_ctypes
 
 
 class _Executor(object):
     """
     A simple executor class that is able to convert a BlazeFunc
-    DataDescriptor into a NumPy DataDescriptor
+    DataDescriptor into a raw memory DataDescriptor
     """
     def __init__(self, dd, iter_dims=1):
         res_ds = dd.dshape
@@ -63,7 +64,7 @@ class _Executor(object):
                 for struct, reader, typ in izip(arg_s[:-1], r,
                                                 self.c_types[:-1]):
                     self._patch(struct,
-                                reader.read_single(element, chunk_size), typ)
+                                reader.read_single(element), typ)
 
                 with dst.buffered_ptr() as dst_buff:
                     self._patch(arg_s[-1], dst_buff, self.c_types[-1])
