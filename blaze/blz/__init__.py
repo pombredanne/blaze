@@ -51,6 +51,5 @@ def detect_number_of_cores():
 _blosc_init()
 ncores = detect_number_of_cores()
 _blosc_set_nthreads(ncores/4)
-_blosc_set_complib("snappy")
 import atexit
 atexit.register(_blosc_destroy)
