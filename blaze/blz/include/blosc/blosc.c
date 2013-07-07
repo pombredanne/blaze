@@ -723,7 +723,6 @@ int blosc_compress(int clevel, int doshuffle, size_t typesize, size_t nbytes,
 
   /* Get the blocksize */
   blocksize = compute_blocksize(clevel, (int32_t)typesize, nbytes_);
-  printf("blocksize: %d \n", blocksize);
 
   /* Compute number of blocks in buffer */
   nblocks = nbytes_ / blocksize;
