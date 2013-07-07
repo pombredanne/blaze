@@ -141,6 +141,21 @@ def _blosc_set_complib(complib):
   """
   return blosc_set_complib(complib)
 
+def _blosc_set_blocksize(size):
+  """
+  _blosc_set_blocksize(size)
+
+  Set the blocksize that Blosc uses internally.
+
+  Parameters
+  ----------
+  size : int
+      The block size (HINT: setting it to more than 256 KB will slow things
+      down a lot).
+
+  """
+  blosc_set_blocksize(size)
+
 def _blosc_init():
   """
   _blosc_init()
@@ -395,6 +410,8 @@ cdef class chunk:
     if blosc_set_complib(bparams.clib) < 0:
       raise RuntimeError(
           "fatal error setting the compression lib: %s"%bparams.clib)
+    if bparams.blocksize is not None:
+        blosc_set_blocksize(bparams.blocksize)
 
     dest = <char *>malloc(nbytes+BLOSC_MAX_OVERHEAD)
     with nogil:

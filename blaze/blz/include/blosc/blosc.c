@@ -262,7 +262,7 @@ static int blosc_c(int32_t blocksize, int32_t leftoverblock,
                    uint8_t *src, uint8_t *dest, uint8_t *tmp)
 {
   int32_t j, neblock, nsplits;
-  int32_t cbytes;                   /* number of compressed bytes in split */
+  int32_t cbytes = 0;               /* number of compressed bytes in split */
   int32_t ctbytes = 0;              /* number of compressed bytes in block */
   int32_t maxout;
   int32_t typesize = params.typesize;
@@ -345,7 +345,7 @@ static int blosc_d(int32_t blocksize, int32_t leftoverblock,
                    uint8_t *src, uint8_t *dest, uint8_t *tmp, uint8_t *tmp2)
 {
   int32_t j, neblock, nsplits;
-  int32_t nbytes;                /* number of decompressed bytes in split */
+  int32_t nbytes = 0;            /* number of decompressed bytes in split */
   int32_t cbytes;                /* number of compressed bytes in split */
   int cbytes2;
   int32_t ctbytes = 0;           /* number of compressed bytes in block */
@@ -666,9 +666,9 @@ static int32_t compute_blocksize(int32_t clevel, int32_t typesize,
   /* blocksize must not exceed (64 KB * typesize) in order to allow
      BloscLZ to achieve better compression ratios (the ultimate reason
      for this is that hash_log in BloscLZ cannot be larger than 15) */
-  if ((blocksize / typesize) > 64*KB) {
-    blocksize = 64 * KB * typesize;
-  }
+  /* if ((blocksize / typesize) > 64*KB) { */
+  /*   blocksize = 64 * KB * typesize; */
+  /* } */
 
   return blocksize;
 }
@@ -723,6 +723,7 @@ int blosc_compress(int clevel, int doshuffle, size_t typesize, size_t nbytes,
 
   /* Get the blocksize */
   blocksize = compute_blocksize(clevel, (int32_t)typesize, nbytes_);
+  printf("blocksize: %d \n", blocksize);
 
   /* Compute number of blocks in buffer */
   nblocks = nbytes_ / blocksize;
