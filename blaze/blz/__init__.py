@@ -10,7 +10,7 @@ from .arrayprint import (
 
 from .blz_ext import (
     barray, _blosc_set_nthreads, blosc_version, _blosc_init, _blosc_destroy,
-    _blosc_set_complib)
+    _blosc_set_complib, _blosc_set_blocksize)
 from .btable import btable
 from .bfuncs import (
     open, zeros, ones, fill, arange, fromiter, iterblocks, whereblocks)
