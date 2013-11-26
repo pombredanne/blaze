@@ -96,7 +96,7 @@ def overloadable(f):
 # Matching
 #------------------------------------------------------------------------
 
-Overload = namedtuple('Overload', 'resolved_sig, sig, func, constraints')
+Overload = namedtuple('Overload', 'resolved_sig, sig, func, constraints, kwds')
 
 def best_match(func, argtypes, constraints=None):
     """
@@ -117,7 +117,7 @@ def best_match(func, argtypes, constraints=None):
     -------
     Overloaded function as an `Overload` instance.
     """
-    from blaze.datashape import coerce
+    from blaze.datashape import coercion_cost
     overloads = func.overloads
 
     # -------------------------------------------------
@@ -130,9 +130,10 @@ def best_match(func, argtypes, constraints=None):
 
     matches = defaultdict(list)
     for match in candidates:
-        params = match.resolved_sig.parameters[:-1]
+        in_signature = T.Function(*argtypes + [T.TypeVar('R')])
+        signature = match.sig
         try:
-            weight = sum([coerce(a, p) for a, p in zip(argtypes, params)])
+            weight = coercion_cost(in_signature, signature)
         except error.CoercionError:
             pass
         else:
@@ -151,7 +152,7 @@ def best_match(func, argtypes, constraints=None):
         raise error.OverloadError(
             "Ambiguous overload for function %s with inputs (%s): \n%s" % (
                 func, ", ".join(map(str, argtypes)),
-                "\n".join("    %s" % (sig,) for _, sig, _ in candidates)))
+                "\n".join("    %s" % (overload.resolved_sig,) for overload in candidates)))
     else:
         return candidates[0]
 
@@ -181,4 +182,4 @@ def find_matches(overloads, argtypes, constraints=()):
             continue
         else:
             dst_sig = result[0]
-            yield Overload(dst_sig, sig, func, remaining)
+            yield Overload(dst_sig, sig, func, remaining, kwds)

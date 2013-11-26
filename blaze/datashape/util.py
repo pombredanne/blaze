@@ -8,6 +8,7 @@ import ctypes
 import sys
 
 from blaze import error
+from blaze.datashape.coretypes import TypeConstructor
 from blaze.util import IdentityDict, gensym
 from . import parser
 from .validation import validate
@@ -17,7 +18,7 @@ from .coretypes import (DataShape, Fixed, TypeVar, Record, Ellipsis, String,
                float32, float64, complex64, complex128,
                Type, free, type_constructor)
 from .traversal import tmap
-from blaze.datashape.traits import TypeSet
+from blaze.datashape.typesets import TypeSet
 
 __all__ = ['dopen', 'dshape', 'dshapes', 'cat_dshapes', 'broadcastable',
            'dummy_signature', 'verify',
@@ -74,7 +75,7 @@ def _dshape(o, multi=False):
         return list(parser.parse_mod(o))
     if isinstance(o, str):
         return parser.parse(o)
-    elif isinstance(o, DataShape):
+    elif isinstance(o, Mono):
         return o
     elif isinstance(o, (CType, String, Record, JSON)):
         return DataShape(o)
@@ -153,6 +154,7 @@ def verify(t1, t2):
     if len(args1) != len(args2):
         raise error.UnificationError("%s got %d and %d arguments" % (
             tcon1, len(args1), len(args2)))
+
 
 def broadcastable(dslist, ranks=None, rankconnect=[]):
     """Return output (outer) shape if datashapes are broadcastable.
@@ -485,5 +487,5 @@ def to_numba(ds):
     import numba
     # Fixup the complex type to how numba does it
     s = str(ds)
-    s = {'cfloat32':'complex64', 'cfloat64':'complex128'}.get(s, s)
+    s = {'cfloat32':'complex64', 'cfloat64':'complex128', 'bool':'bool_'}.get(s, s)
     return getattr(numba, s)

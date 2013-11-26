@@ -25,7 +25,8 @@ from blaze.py2help import dict_iteritems, _strtypes
 from blaze.util import IdentityDict, IdentitySet
 from blaze.datashape import (promote_units, normalize, simplify, tmap,
                              dshape, verify)
-from blaze.datashape.coretypes import TypeVar, free
+from blaze.datashape.coretypes import (TypeVar, Mono, free, TypeConstructor,
+                MEASURE)
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ def unify(constraints, broadcasting=None):
 
     # Reify and promote the datashapes
     result = [substitute(substitution, ds2) for ds1, ds2 in constraints]
+    remaining = [(a, b) for a, b in remaining if a != b]
     return result, remaining
 
 #------------------------------------------------------------------------
@@ -134,9 +136,13 @@ def unify_single(t1, t2, solution, remaining):
         if t2 in free(t1):
             raise error.UnificationError("Cannot unify recursive types")
         solution[t2].add(t1)
-    elif not free(t1) and not free(t2):
-        # No need to recurse, this will be caught by promote()
-        pass
+    elif isinstance(t1, TypeConstructor):
+        verify(t1, t2)
+    elif not isinstance(t1, Mono) and not isinstance(t2, Mono):
+        verify(t1, t2)
+    elif getattr(t1, 'cls', None) == MEASURE and getattr(t2, 'cls', None) == MEASURE:
+        # If both types are measures, verify they can be promoted
+        promote_units(t1, t2)
     else:
         verify(t1, t2)
         for arg1, arg2 in zip(t1.parameters, t2.parameters):

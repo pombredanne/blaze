@@ -9,8 +9,8 @@ from functools import reduce
 
 from blaze import error
 from blaze.util import gensym
-from blaze.datashape import (DataShape, CType, Fixed, to_numpy,
-                             TypeSet, TypeVar)
+from blaze.datashape import (DataShape, CType, Fixed, Var, to_numpy,
+                             TypeSet, TypeVar, TypeConstructor, verify)
 
 import numpy as np
 
@@ -31,17 +31,38 @@ def promote(a, b):
     # Fixed
 
     if isinstance(a, Fixed):
-        assert isinstance(b, Fixed)
-        if a == Fixed(1):
-            return b
-        elif b == Fixed(1):
+        if isinstance(b, Fixed):
+            if a == Fixed(1):
+                return b
+            elif b == Fixed(1):
+                return a
+            else:
+                if a != b:
+                    raise error.UnificationError(
+                        "Cannot unify differing fixed dimensions "
+                        "%s and %s" % (a, b))
+                return a
+        elif isinstance(b, Var):
+            if a == Fixed(1):
+                return b
+            else:
+                return a
+        else:
+            raise TypeError("Unknown types, cannot promote: %s and %s" % (a, b))
+
+    # -------------------------------------------------
+    # Var
+
+    elif isinstance(a, Var):
+        if isinstance(b, Fixed):
+            if b == Fixed(1):
+                return a
+            else:
+                return b
+        elif isinstance(b, Var):
             return a
         else:
-            if a != b:
-                raise error.UnificationError(
-                    "Cannot unify differing fixed dimensions "
-                    "%s and %s" % (a, b))
-            return a
+            raise TypeError("Unknown types, cannot promote: %s and %s" % (a, b))
 
     # -------------------------------------------------
     # Typeset
@@ -64,7 +85,7 @@ def promote(a, b):
     # Units
 
     elif isinstance(a, CType) and isinstance(b, CType):
-        # Promote CTypes -- this should go through coerce()
+        # Promote CTypes -- this should use coercion_cost()
         return promote_scalars(a, b)
 
     # -------------------------------------------------
@@ -72,6 +93,10 @@ def promote(a, b):
 
     elif isinstance(a, (DataShape, CType)) and isinstance(b, (DataShape, CType)):
         return promote_datashapes(a, b)
+
+    elif (isinstance(type(a), TypeConstructor) and
+              isinstance(type(b), TypeConstructor)):
+        return promote_type_constructor(a, b)
 
     else:
         raise TypeError("Unknown types, cannot promote: %s and %s" % (a, b))
@@ -84,7 +109,10 @@ def eq(a, b):
 
 def promote_scalars(a, b):
     """Promote two CTypes"""
-    return CType.from_numpy_dtype(np.result_type(to_numpy(a), to_numpy(b)))
+    try:
+        return CType.from_numpy_dtype(np.result_type(to_numpy(a), to_numpy(b)))
+    except TypeError, e:
+        raise TypeError("Cannot promote %s and %s: %s" % (a, b, e))
 
 def promote_datashapes(a, b):
     """Promote two DataShapes"""
@@ -103,3 +131,24 @@ def promote_datashapes(a, b):
 
     assert result1 == result2
     return result1
+
+def promote_type_constructor(a, b):
+    """Promote two generic type constructors"""
+    # Verify type constructor equality
+    verify(a, b)
+
+    # Promote parameters according to flags
+    args = []
+    for flag, t1, t2 in zip(a.flags, a.parameters, b.parameters):
+        if flag['coercible']:
+            result = promote(t1, t2)
+        else:
+            if t1 != t2:
+                raise error.UnificationError(
+                    "Got differing types %s and %s for unpromotable type "
+                    "parameter in constructors %s and %s" % (t1, t2, a, b))
+            result = t1
+
+        args.append(result)
+
+    return type(a)(*args)
